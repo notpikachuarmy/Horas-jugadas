@@ -1,18 +1,9 @@
-let DATA={games:"",series:"",streams:""};
-async function loadConfig(){
-  const r=await fetch("CONFIGURACION.xlsx?v="+Date.now());
-  if(!r.ok) throw new Error("No se pudo cargar CONFIGURACION.xlsx");
-  const bytes=await r.arrayBuffer();
-  const book=XLSX.read(bytes,{type:"array"});
-  const sheet=book.Sheets[book.SheetNames[0]];
-  const rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
-  const map={};
-  rows.forEach(x=>{const key=String(x.FUENTE||"").trim().toUpperCase(); const url=String(x.ENLACE_CSV||"").trim(); if(key&&url) map[key]=url;});
-  DATA.games=map.JUEGOS||"";
-  DATA.series=map.SERIES||"";
-  DATA.streams=map.DIRECTOS||"";
-  if(!DATA.games||!DATA.series||!DATA.streams) throw new Error("Faltan uno o varios enlaces en CONFIGURACION.xlsx");
-}
+const DATA={
+  games:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRrs7lqSWVjDamV3J-r2Nft9snIcAa2bdfAvjLxQ3zFWhQkhjAJZL8v_QpxvC4ysA/pub?gid=589511763&single=true&output=csv",
+  series:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRrs7lqSWVjDamV3J-r2Nft9snIcAa2bdfAvjLxQ3zFWhQkhjAJZL8v_QpxvC4ysA/pub?gid=589511763&single=true&output=csv",
+  streams:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRrs7lqSWVjDamV3J-r2Nft9snIcAa2bdfAvjLxQ3zFWhQkhjAJZL8v_QpxvC4ysA/pub?gid=1445555673&single=true&output=csv"
+};
+
 let games=[],series=[],streams=[],tab="juegos";
 
 async function loadCSV(url){
@@ -126,18 +117,57 @@ function renderSeries(){
   host.querySelectorAll(".series-card").forEach(c=>c.onclick=e=>{if(e.target.closest("a"))return;showSeries(c.dataset.id)});
 }
 function renderStats(){
-  const gs=statsForGames(), ss=statsForSeries(), total=streams.reduce((n,s)=>n+minutes(s.TIEMPO_JUGADO),0);
-  const max=gs[0]?.minutes||1;
-  const top=gs.slice(0,6);
-  document.getElementById("statsContent").innerHTML=`
-    <div class="stats-head"><div><p class="eyebrow">ESTADÍSTICAS</p><h2>Tiempo jugado</h2><p class="muted">Las estadísticas se calculan sumando TIEMPO_JUGADO de cada sesión.</p></div><div><div class="total-hours">${fmtMin(total)}</div><div class="muted">tiempo total</div></div></div>
-    <div class="stats-grid">
-      <div class="stat-card"><span>Tiempo total</span><strong>${fmtMin(total)}</strong></div>
-      <div class="stat-card"><span>Juegos</span><strong>${gs.length}</strong></div>
-      <div class="stat-card"><span>Series</span><strong>${ss.length}</strong></div>
+  const all=statsForGames(), ss=statsForSeries();
+  const total=all.reduce((n,x)=>n+x.minutes,0);
+  const top=all.slice(0,5);
+  const others=all.slice(5).reduce((n,x)=>n+x.minutes,0);
+  const totalGames=all.length;
+  const shareOf=x=>total?(x.minutes/total*100):0;
+  const imgSrc=g=>img(g);
+
+  const barItems=[...top.map(x=>({...x,name:gameName(game(x.id),x.id),share:shareOf(x)}))];
+  if(others>0) barItems.push({id:'__others__',name:'Otros',minutes:others,share:total?(others/total*100):0});
+
+  const segment=(x,i)=>{
+    if(x.id==='__others__') return `<button type="button" class="game-share-segment game-share-others" title="Otros"><span class="game-share-overlay"></span></button>`;
+    const src=imgSrc(game(x.id));
+    return `<button type="button" class="game-share-segment game-share-${i+1}" data-game="${esc(x.id)}" title="${esc(x.name)} — ${fmtMin(x.minutes)} (${x.share.toFixed(1)}%)">
+      ${src?`<div class="game-share-tiles" aria-hidden="true"><img src="${esc(src)}" alt="" loading="lazy" onerror="this.style.display='none'"></div>`:''}
+      <span class="game-share-overlay" aria-hidden="true"></span>
+      <div class="game-share-tooltip"><strong>${esc(x.name)}</strong><span>${fmtMin(x.minutes)} · ${x.share.toFixed(1)}%</span></div>
+    </button>`;
+  };
+
+  const labels=barItems.map((x,i)=>`<button type="button" class="game-share-label" data-game="${esc(x.id)}"><strong>${esc(x.name)}</strong><span>${fmtMin(x.minutes)} · ${x.share.toFixed(1)}%</span></button>`).join('');
+  const columns=barItems.map(x=>`${Math.max(Number(x.share)||0,0.01)}fr`).join(' ');
+
+  const rows=all.map((x,i)=>{
+    const g=game(x.id),src=imgSrc(g), name=gameName(g,x.id);
+    return `<button type="button" class="game-stat-row" data-game="${esc(x.id)}">
+      <span class="game-stat-rank">${i+1}</span>
+      <span class="game-stat-game">${src?`<img src="${esc(src)}" alt="" loading="lazy" onerror="this.style.display='none'">`:''}<strong>${esc(name)}</strong></span>
+      <span class="game-stat-number"><strong>${fmtMin(x.minutes)}</strong><small>${shareOf(x).toFixed(1)}% del total</small></span>
+      <span class="game-stat-number"><strong>${x.sessions}</strong><small>sesiones</small></span>
+      <time>${esc(x.last||'—')}</time>
+    </button>`;
+  }).join('');
+
+  document.getElementById('statsContent').innerHTML=`
+    <div class="game-stats-intro"><div><p class="eyebrow">GAMEPLAY DISTRIBUTION</p><h2>Juegos más jugados</h2><p>Distribución de todo el tiempo jugado. Los <strong>5 juegos principales</strong> aparecen individualmente y el resto se agrupa en «Otros».</p></div><div class="game-stats-total"><strong>${fmtMin(total)}</strong><span>tiempo contabilizado</span></div></div>
+    <div class="game-share-wrap">
+      <div class="game-share-labels" style="grid-template-columns:${columns}">${labels}</div>
+      <div class="game-share-bar" aria-label="Distribución del tiempo jugado por juego" style="grid-template-columns:${columns}">${barItems.map(segment).join('')}</div>
     </div>
-    <div class="ranking top6"><h3>TOP 6 — Juegos con más horas</h3>${top.map((x,i)=>`<div class="rank-row"><div class="rank-num">#${i+1}</div><div><strong>${esc(gameName(game(x.id),x.id))}</strong><div class="bar-wrap"><div class="bar" style="width:${(x.minutes/max*100).toFixed(2)}%"></div></div></div><strong>${fmtMin(x.minutes)}</strong></div>`).join("")||'<div class="empty">Todavía no hay sesiones con tiempo jugado.</div>'}</div>`;
+    <div class="stats-grid"><div class="stat-card"><span>Tiempo total</span><strong>${fmtMin(total)}</strong></div><div class="stat-card"><span>Juegos</span><strong>${totalGames}</strong></div><div class="stat-card"><span>Series</span><strong>${ss.length}</strong></div></div>
+    <div class="game-stats-table">
+      <div class="game-stat-header"><span>#</span><span>Juego</span><span>Tiempo jugado</span><span>Sesiones</span><span>Último directo</span></div>
+      ${rows || '<div class="empty">Todavía no hay sesiones con tiempo jugado.</div>'}
+    </div>`;
+
+  document.querySelectorAll('.game-stat-row[data-game]').forEach(r=>r.onclick=()=>showGame(r.dataset.game));
+  document.querySelectorAll('.game-share-segment[data-game],.game-share-label[data-game]').forEach(el=>el.onclick=()=>showGame(el.dataset.game));
 }
+
 function showGame(id){
   const g=game(id), rows=streams.filter(s=>s.ID_JUEGO===id), total=rows.reduce((n,s)=>n+minutes(s.TIEMPO_JUGADO),0);
   const bySeries={};rows.forEach(s=>{bySeries[s.ID_SERIE||"__sin_serie__"]=(bySeries[s.ID_SERIE||"__sin_serie__"]||0)+minutes(s.TIEMPO_JUGADO)});
