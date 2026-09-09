@@ -1,6 +1,6 @@
 const DATA={
   games:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRrs7lqSWVjDamV3J-r2Nft9snIcAa2bdfAvjLxQ3zFWhQkhjAJZL8v_QpxvC4ysA/pub?gid=589511763&single=true&output=csv",
-  series:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRrs7lqSWVjDamV3J-r2Nft9snIcAa2bdfAvjLxQ3zFWhQkhjAJZL8v_QpxvC4ysA/pub?gid=589511763&single=true&output=csv",
+  series:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRrs7lqSWVjDamV3J-r2Nft9snIcAa2bdfAvjLxQ3zFWhQkhjAJZL8v_QpxvC4ysA/pubhtml?gid=2023822131&single=true",
   streams:"https://docs.google.com/spreadsheets/d/e/2PACX-1vRrs7lqSWVjDamV3J-r2Nft9snIcAa2bdfAvjLxQ3zFWhQkhjAJZL8v_QpxvC4ysA/pub?gid=1445555673&single=true&output=csv"
 };
 
