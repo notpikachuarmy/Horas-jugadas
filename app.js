@@ -16,7 +16,7 @@ async function loadConfig(){
 let games=[],series=[],streams=[],tab="juegos";
 
 async function loadCSV(url){
-  const r=await fetch(url+"?v="+Date.now());
+  const r=await fetch(url,{cache:"no-store"});
   if(!r.ok) throw new Error("No se pudo cargar "+url);
   return parseCSV(await r.text());
 }
@@ -128,7 +128,7 @@ function renderSeries(){
 function renderStats(){
   const gs=statsForGames(), ss=statsForSeries(), total=streams.reduce((n,s)=>n+minutes(s.TIEMPO_JUGADO),0);
   const max=gs[0]?.minutes||1;
-  const top=gs.slice(0,10);
+  const top=gs.slice(0,6);
   document.getElementById("statsContent").innerHTML=`
     <div class="stats-head"><div><p class="eyebrow">ESTADÍSTICAS</p><h2>Tiempo jugado</h2><p class="muted">Las estadísticas se calculan sumando TIEMPO_JUGADO de cada sesión.</p></div><div><div class="total-hours">${fmtMin(total)}</div><div class="muted">tiempo total</div></div></div>
     <div class="stats-grid">
@@ -136,7 +136,7 @@ function renderStats(){
       <div class="stat-card"><span>Juegos</span><strong>${gs.length}</strong></div>
       <div class="stat-card"><span>Series</span><strong>${ss.length}</strong></div>
     </div>
-    <div class="ranking"><h3>Juegos con más horas</h3>${top.map((x,i)=>`<div class="rank-row"><div class="rank-num">#${i+1}</div><div><strong>${esc(gameName(game(x.id),x.id))}</strong><div class="bar-wrap"><div class="bar" style="width:${(x.minutes/max*100).toFixed(2)}%"></div></div></div><strong>${fmtMin(x.minutes)}</strong></div>`).join("")||'<div class="empty">Todavía no hay sesiones con tiempo jugado.</div>'}</div>`;
+    <div class="ranking top6"><h3>TOP 6 — Juegos con más horas</h3>${top.map((x,i)=>`<div class="rank-row"><div class="rank-num">#${i+1}</div><div><strong>${esc(gameName(game(x.id),x.id))}</strong><div class="bar-wrap"><div class="bar" style="width:${(x.minutes/max*100).toFixed(2)}%"></div></div></div><strong>${fmtMin(x.minutes)}</strong></div>`).join("")||'<div class="empty">Todavía no hay sesiones con tiempo jugado.</div>'}</div>`;
 }
 function showGame(id){
   const g=game(id), rows=streams.filter(s=>s.ID_JUEGO===id), total=rows.reduce((n,s)=>n+minutes(s.TIEMPO_JUGADO),0);
@@ -171,6 +171,6 @@ document.getElementById("sort").onchange=()=>{if(tab==="juegos")renderGames();if
   renderGames();renderSeries();renderStats();
  }catch(e){
   console.error(e);
-  document.getElementById("gamesList").innerHTML=`<div class="empty">No se han podido cargar los CSV. Comprueba que estás sirviendo la carpeta desde un servidor web (por ejemplo GitHub Pages) y que existen los tres archivos de data/.</div>`;
+  document.getElementById("gamesList").innerHTML=`<div class="empty">No se han podido cargar los datos. Comprueba que CONFIGURACION.xlsx contiene las tres URLs y que los CSV de Google Sheets están publicados en la web.<br><small>${esc(e.message||e)}</small></div>`;
  }
 })();
